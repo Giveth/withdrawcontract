@@ -11,28 +11,9 @@ contract ERC20 {
     function balanceOf(address owner) public constant returns (uint);
 }
 
-contract Owned {
-    /// Allows only the owner to call a function
-    modifier onlyOwner {
-        require(msg.sender == owner);
-        _;
-    }
+import "../node_modules/giveth-common-contracts/contracts/Owned.sol";
 
-    address public owner;
-
-    /// @return Returns the owner of this token
-    function Owned() public {
-        owner = msg.sender;
-    }
-
-    /// @notice Changes the owner of the contract
-    /// @param _newOwner The new owner of the contract
-    function changeOwner(address _newOwner) public onlyOwner {
-        owner = _newOwner;
-    }
-}
-
-contract RewardContract is Owned {
+contract WithdrawContract is Owned {
     struct Payment {
         uint block;
         ERC20 token;
@@ -44,30 +25,36 @@ contract RewardContract is Owned {
 
     mapping (address => uint) public nextRefundToPay;
 
-    function RewardContract(MiniMeToken _distToken) public {
+    function WithdrawContract(MiniMeToken _distToken) public {
         distToken = _distToken;
     }
 
-    function newEtherPayment() public onlyOwner payable returns(bool) {
+    function () payable public {
+        newEtherPayment(0);
+    }
+
+    function newEtherPayment(uint _block) public onlyOwner payable returns(bool) {
         if (msg.value == 0) return false;
+        require(_block < block.number);
         Payment storage payment = payments[payments.length ++];
-        payment.block = block.number;
+        payment.block = _block == 0 ? block.number -1 : _block;
         payment.token = ERC20(0);
         payment.amount = msg.value;
         return true;
     }
 
-    function newTokenPayment(ERC20 token, uint amount) public onlyOwner returns(bool) {
+    function newTokenPayment(ERC20 token, uint amount, uint _block) public onlyOwner returns(bool) {
         if (amount == 0) return false;
+        require(_block < block.number);
         require( token.transferFrom(msg.sender, address(this), amount) );
         Payment storage payment = payments[payments.length ++];
-        payment.block = block.number;
+        payment.block = _block == 0 ? block.number -1 : _block;
         payment.token = token;
         payment.amount = amount;
         return true;
     }
 
-    function getRewards() public {
+    function withdraw() public {
         uint acc = 0;
         ERC20 currentToken = ERC20(0x0);
         uint i = nextRefundToPay[msg.sender];
@@ -75,7 +62,9 @@ contract RewardContract is Owned {
         assembly {
             g:= gas
         }
-        while (( i< payments.length) && ( g > 50000)) { // TODO Adjust the miminum to a lowe value
+
+        require(g>200000);
+        while (( i< payments.length) && ( g > 150000)) { // TODO Adjust the miminum to a lowe value
             Payment storage payment = payments[i];
 
             if ( currentToken != payment.token) {
@@ -113,17 +102,25 @@ contract RewardContract is Owned {
         for (i=0; i<tmpLen; i++) tokens[i] = tmpTokens[i];
     }
 
-    function getPendingReward(ERC20 token, address _holder) public constant returns(uint) {
+    function getPendingReward(ERC20 token, address holder) public constant returns(uint) {
         uint acc =0;
         for (uint i=nextRefundToPay[msg.sender]; i<payments.length; i++) {
             Payment storage payment = payments[i];
             if (payment.token == token) {
                 acc +=  payment.amount *
-                    distToken.balanceOfAt(_holder, payment.block) /
+                    distToken.balanceOfAt(holder, payment.block) /
                         distToken.totalSupplyAt(payment.block);
             }
         }
         return acc;
+    }
+
+    function hasFundsAvailable(address holder) constant returns (bool) {
+        nextRefundToPay[holder] == payments.length;
+    }
+
+    function nPayments() constant returns (uint) {
+        return payments.length;
     }
 
     function doPayment(ERC20 token, address dest, uint amount) internal returns (bool) {

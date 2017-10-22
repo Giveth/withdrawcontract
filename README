@@ -1,4 +1,4 @@
-# Reward contract 
+# Withdraw contract
 
 This contract showld be used by a single owner to distribute funds with between the owners of a minime contract at specific block.
 
