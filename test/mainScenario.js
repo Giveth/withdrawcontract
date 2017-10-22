@@ -83,7 +83,11 @@ describe('LiquidPledging test', () => {
     assert.equal(st.totalSupply, 100);
   });
   it('Should deploy the withdraw contract', async () => {
-    withdrawContract = await WithdrawContract.new(web3, distToken.$address);
+    withdrawContract = await WithdrawContract.new(
+      web3,
+      distToken.$address,
+      accounts[0],
+      accounts[0]);
     assert.ok(withdrawContract.$address);
   });
   it('Should pop with ether', async () => {
@@ -108,9 +112,9 @@ describe('LiquidPledging test', () => {
     oldValues[2] = new BN(await web3.eth.getBalance(accounts[2]));
     oldValues[3] = new BN(await web3.eth.getBalance(accounts[3]));
     const txs = [];
-    txs[1] = await withdrawContract.withdraw({ from: accounts[1], gas: 300000 });
-    txs[2] = await withdrawContract.withdraw({ from: accounts[2], gas: 300000 });
-    txs[3] = await withdrawContract.withdraw({ from: accounts[3], gas: 300000 });
+    txs[1] = await withdrawContract.withdraw({ from: accounts[1], gas: 200000 });
+    txs[2] = await withdrawContract.withdraw({ from: accounts[2], gas: 200000 });
+    txs[3] = await withdrawContract.withdraw({ from: accounts[3], gas: 200000 });
     const st = await valueTokenState.getState();
     assert.equal(st.balances[accounts[1]], 50);
     assert.equal(st.balances[accounts[2]], 30);

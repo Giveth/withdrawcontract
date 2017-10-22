@@ -5,15 +5,10 @@ contract MiniMeToken {
     function totalSupplyAt(uint _blockNumber) public constant returns(uint);
 }
 
-contract ERC20 {
-    function transfer(address dest, uint amount) public returns(bool) ;
-    function transferFrom(address from, address to, uint amount) public returns(bool);
-    function balanceOf(address owner) public constant returns (uint);
-}
+import "../node_modules/giveth-common-contracts/contracts/ERC20.sol";
+import "../node_modules/giveth-common-contracts/contracts/Escapable.sol";
 
-import "../node_modules/giveth-common-contracts/contracts/Owned.sol";
-
-contract WithdrawContract is Owned {
+contract WithdrawContract is Escapable {
     struct Payment {
         uint block;
         ERC20 token;
@@ -25,7 +20,12 @@ contract WithdrawContract is Owned {
 
     mapping (address => uint) public nextRefundToPay;
 
-    function WithdrawContract(MiniMeToken _distToken) public {
+    function WithdrawContract(
+        MiniMeToken _distToken,
+        address _escapeHatchCaller,
+        address _escapeHatchDestination)
+        Escapable(_escapeHatchCaller, _escapeHatchDestination) public
+    {
         distToken = _distToken;
     }
 
@@ -63,7 +63,7 @@ contract WithdrawContract is Owned {
             g:= gas
         }
 
-        require(g>200000);
+        require(g>150000);
         while (( i< payments.length) && ( g > 150000)) { // TODO Adjust the miminum to a lowe value
             Payment storage payment = payments[i];
 
