@@ -204,7 +204,7 @@ contract Escapable is Owned {
 }
 
 //File: ./contracts/WithdrawContract.sol
-pragma solidity ^0.4.4;
+pragma solidity ^0.4.18;
 
 contract MiniMeToken {
     function balanceOfAt(address _owner, uint _blockNumber) public constant returns (uint);
@@ -219,12 +219,14 @@ contract WithdrawContract is Escapable {
         uint block;
         ERC20 token;
         uint amount;
+        bool canceled;
     }
 
     Payment[] public payments;
     MiniMeToken distToken;
 
     mapping (address => uint) public nextRefundToPay;
+    mapping (address => mapping(uint => bool)) skipPayments;
 
     function WithdrawContract(
         MiniMeToken _distToken,
@@ -239,80 +241,75 @@ contract WithdrawContract is Escapable {
         newEtherPayment(0);
     }
 
-    function newEtherPayment(uint _block) public onlyOwner payable returns(bool) {
-        if (msg.value == 0) return false;
+    function newEtherPayment(uint _block) public onlyOwner payable returns (uint idPayment) {
+        require(msg.value>0);
         require(_block < block.number);
-        Payment storage payment = payments[payments.length ++];
+        idPayment = payments.length ++;
+        Payment storage payment = payments[idPayment];
         payment.block = _block == 0 ? block.number -1 : _block;
         payment.token = ERC20(0);
         payment.amount = msg.value;
-        return true;
+        NewPayment(idPayment, ERC20(0), msg.value);
     }
 
-    function newTokenPayment(ERC20 token, uint amount, uint _block) public onlyOwner returns(bool) {
-        if (amount == 0) return false;
+    function newTokenPayment(ERC20 token, uint amount, uint _block) public onlyOwner returns (uint idPayment) {
+        require(amount > 0);
         require(_block < block.number);
         require( token.transferFrom(msg.sender, address(this), amount) );
-        Payment storage payment = payments[payments.length ++];
+        idPayment = payments.length ++;
+        Payment storage payment = payments[idPayment];
         payment.block = _block == 0 ? block.number -1 : _block;
         payment.token = token;
         payment.amount = amount;
-        return true;
+        NewPayment(idPayment, token, amount);
+    }
+
+    function cancelPaymentGlobally(uint idPayment) public onlyOwner {
+        require(idPayment < payments.length);
+        payments[idPayment].canceled = true;
+        CancelPaymentGlobally(idPayment);
     }
 
     function withdraw() public {
         uint acc = 0;
         ERC20 currentToken = ERC20(0x0);
         uint i = nextRefundToPay[msg.sender];
-        uint g;
-        assembly {
-            g:= gas
-        }
 
-        require(g>150000);
-        while (( i< payments.length) && ( g > 150000)) { // TODO Adjust the miminum to a lowe value
+        require(msg.gas>149000);
+        while (( i< payments.length) && ( msg.gas > 148000)) { // TODO Adjust the miminum to a lowe value
             Payment storage payment = payments[i];
 
-            if ( currentToken != payment.token) {
-                nextRefundToPay[msg.sender] = i;
-                if (!doPayment(currentToken, msg.sender, acc)) return;
-                currentToken = payment.token;
-                acc =0;
+            if ((!payment.canceled)&&(!isPaymentSkiped(msg.sender, i))) {
+                if (currentToken != payment.token) {
+                    nextRefundToPay[msg.sender] = i;
+                    require(doPayment(currentToken, msg.sender, acc));
+                    Withdraw(i, msg.sender, currentToken, acc);
+                    currentToken = payment.token;
+                    acc =0;
+                }
+
+                acc +=  payment.amount *
+                        distToken.balanceOfAt(msg.sender, payment.block) /
+                            distToken.totalSupplyAt(payment.block);
             }
 
-            acc +=  payment.amount *
-                    distToken.balanceOfAt(msg.sender, payment.block) /
-                        distToken.totalSupplyAt(payment.block);
             i++;
-            assembly {
-                g:= gas
-            }
         }
         nextRefundToPay[msg.sender] = i;
-        if (!doPayment(currentToken, msg.sender, acc)) return;
+        require(doPayment(currentToken, msg.sender, acc));
+        Withdraw(i, msg.sender, currentToken, acc);
     }
 
-    function getPendingTokens() public constant returns(ERC20[] tokens) {
-        uint tmpLen =0;
-        ERC20[] memory tmpTokens = new ERC20[](payments.length - nextRefundToPay[msg.sender]);
-        for (uint i=nextRefundToPay[msg.sender]; i<payments.length; i++) {
-            Payment storage payment = payments[i];
-            uint j;
-            while ((j<tmpLen)&&(tmpTokens[j] != payment.token)) j++;
-            if (j==tmpLen) {
-                tmpTokens[tmpLen] = payment.token;
-                tmpLen ++;
-            }
-        }
-        tokens = new ERC20[](tmpLen);
-        for (i=0; i<tmpLen; i++) tokens[i] = tmpTokens[i];
+    function skipPayment(uint idPayment, bool skip) public {
+        require(idPayment < payments.length);
+        skipPayments[msg.sender][idPayment] = skip;
     }
 
     function getPendingReward(ERC20 token, address holder) public constant returns(uint) {
         uint acc =0;
         for (uint i=nextRefundToPay[msg.sender]; i<payments.length; i++) {
             Payment storage payment = payments[i];
-            if (payment.token == token) {
+            if ((payment.token == token)&&(!payment.canceled) && (!isPaymentSkiped(holder, i))) {
                 acc +=  payment.amount *
                     distToken.balanceOfAt(holder, payment.block) /
                         distToken.totalSupplyAt(payment.block);
@@ -322,7 +319,7 @@ contract WithdrawContract is Escapable {
     }
 
     function hasFundsAvailable(address holder) constant returns (bool) {
-        nextRefundToPay[holder] == payments.length;
+        return nextRefundToPay[holder] < payments.length;
     }
 
     function nPayments() constant returns (uint) {
@@ -346,4 +343,12 @@ contract WithdrawContract is Escapable {
             return token.balanceOf(holder);
         }
     }
+
+    function isPaymentSkiped(address tokenHolder, uint idPayment) constant returns(bool) {
+        return skipPayments[tokenHolder][idPayment];
+    }
+
+    event Withdraw(uint indexed idPayment, address indexed tokenHolder, ERC20 indexed tokenContract, uint amount);
+    event NewPayment(uint indexed idPayment, ERC20 indexed tokenContract, uint amount);
+    event CancelPaymentGlobally(uint indexed idPayment);
 }
