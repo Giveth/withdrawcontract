@@ -77,6 +77,7 @@ contract WithdrawContract is Escapable {
                 if (currentToken != payment.token) {
                     nextRefundToPay[msg.sender] = i;
                     require(doPayment(i-1, msg.sender, currentToken, acc));
+                    assert(nextRefundToPay[msg.sender] == i)
                     currentToken = payment.token;
                     acc =0;
                 }
@@ -90,6 +91,7 @@ contract WithdrawContract is Escapable {
         }
         nextRefundToPay[msg.sender] = i;
         require(doPayment(i-1, msg.sender, currentToken, acc));
+        assert(nextRefundToPay[msg.sender] == i)
     }
 
     function skipPayment(uint _idPayment, bool _skip) public {
