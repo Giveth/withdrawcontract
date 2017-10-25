@@ -10,7 +10,7 @@ const MiniMeTokenState = require('minimetoken').MiniMeTokenState;
 
 const assert = chai.assert;
 
-describe('LiquidPledging test', () => {
+describe('WithdrawContract test', () => {
   let testrpc;
   let web3;
   let BN;
@@ -95,18 +95,22 @@ describe('LiquidPledging test', () => {
       from: accounts[0],
       value: 100,
       to: withdrawContract.$address });
-    const nPayments = await withdrawContract.nPayments();
-    assert.equal(nPayments, 1);
+    const nDeposits = await withdrawContract.nDeposits();
+    assert.equal(nDeposits, 1);
     const v = await web3.eth.getBalance(withdrawContract.$address);
     assert.equal(v, 100);
   });
   it('Should pop with value token', async () => {
     await valueToken.approve(withdrawContract.$address, 100);
-    await withdrawContract.newTokenPayment(valueToken.$address, 100, 0);
+    await withdrawContract.newTokenDeposit(valueToken.$address, 100, 0);
     const balance = await valueToken.balanceOf(withdrawContract.$address);
     assert.equal(balance, 100);
   });
   it('Should withdraw values', async () => {
+    let canWithdraw;
+    canWithdraw = await withdrawContract.canWithdraw(accounts[1]);
+    assert.equal(canWithdraw, true);
+
     const oldValues = [];
     oldValues[1] = new BN(await web3.eth.getBalance(accounts[1]));
     oldValues[2] = new BN(await web3.eth.getBalance(accounts[2]));
@@ -134,5 +138,11 @@ describe('LiquidPledging test', () => {
     assert.equal(d[1], 50);
     assert.equal(d[2], 30);
     assert.equal(d[3], 20);
+
+    canWithdraw = await withdrawContract.canWithdraw(accounts[1]);
+    assert.equal(canWithdraw, false);
+
+    canWithdraw = await withdrawContract.canWithdraw(accounts[4]);
+    assert.equal(canWithdraw, false);
   });
 });
