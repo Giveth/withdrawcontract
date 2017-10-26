@@ -362,8 +362,9 @@ contract WithdrawContract is Escapable {
     ///  called multiple times if their are many deposits
     function withdraw() public {
         uint acc = 0; // Accumulates the amount of tokens/ether to be sent
-        ERC20 currentToken = ERC20(0x0); // Sets the `currentToken` to ether
         uint i = nextDepositToPayout[msg.sender]; // Iterates through the deposits
+        require(i<deposits.length);
+        ERC20 currentToken = deposits[i].token; // Sets the `currentToken` to ether
 
         require(msg.gas>149000); // Throws if there is no gas to do at least a single transfer.
         while (( i< deposits.length) && ( msg.gas > 148000)) {
