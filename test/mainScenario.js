@@ -53,6 +53,7 @@ describe('WithdrawContract test', () => {
     assert.ok(distToken.$address);
     distTokenState = new MiniMeTokenState(distToken);
   }).timeout(20000);
+
   it('Should create distribution tokens', async () => {
     await distToken.generateTokens(accounts[1], 5, { from: accounts[0], gas: 200000 });
     await distToken.generateTokens(accounts[2], 3, { from: accounts[0], gas: 200000 });
@@ -62,7 +63,8 @@ describe('WithdrawContract test', () => {
     assert.equal(st.balances[accounts[2]], 3);
     assert.equal(st.balances[accounts[3]], 2);
     assert.equal(st.totalSupply, 10);
-  }).timeout(6000);
+  }).timeout(20000);
+
   it('Should deploy a value token', async () => {
     const tokenFactory = await MiniMeTokenFactory.new(web3);
     valueToken = await MiniMeToken.new(web3,
@@ -76,12 +78,14 @@ describe('WithdrawContract test', () => {
     assert.ok(distToken.$address);
     valueTokenState = new MiniMeTokenState(valueToken);
   }).timeout(20000);
+
   it('Should create value tokens', async () => {
     await valueToken.generateTokens(accounts[0], 100, { from: accounts[0], gas: 200000 });
     const st = await valueTokenState.getState();
     assert.equal(st.balances[accounts[0]], 100);
     assert.equal(st.totalSupply, 100);
-  });
+  }).timeout(20000);
+
   it('Should deploy the withdraw contract', async () => {
     withdrawContract = await WithdrawContract.new(
       web3,
@@ -89,7 +93,8 @@ describe('WithdrawContract test', () => {
       accounts[0],
       accounts[0]);
     assert.ok(withdrawContract.$address);
-  });
+  }).timeout(20000);
+
   it('Should pop with ether', async () => {
     await web3.eth.sendTransaction({
       from: accounts[0],
@@ -99,13 +104,15 @@ describe('WithdrawContract test', () => {
     assert.equal(nDeposits, 1);
     const v = await web3.eth.getBalance(withdrawContract.$address);
     assert.equal(v, 100);
-  });
+  }).timeout(20000);
+
   it('Should pop with value token', async () => {
     await valueToken.approve(withdrawContract.$address, 100);
     await withdrawContract.newTokenDeposit(valueToken.$address, 100, 0);
     const balance = await valueToken.balanceOf(withdrawContract.$address);
     assert.equal(balance, 100);
-  });
+  }).timeout(20000);
+
   it('Should withdraw values', async () => {
     let canWithdraw;
     canWithdraw = await withdrawContract.canWithdraw(accounts[1]);
@@ -144,5 +151,6 @@ describe('WithdrawContract test', () => {
 
     canWithdraw = await withdrawContract.canWithdraw(accounts[4]);
     assert.equal(canWithdraw, false);
-  });
+  }).timeout(20000);
+  
 });
