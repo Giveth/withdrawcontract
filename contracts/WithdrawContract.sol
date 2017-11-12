@@ -216,7 +216,7 @@ contract WithdrawContract is Escapable {
     ///  unit of the `token` (wei for ether)
     function getPendingReward(ERC20 _token, address _holder) public constant returns(uint) {
         uint acc =0;
-        for (uint i=nextDepositToPayout[msg.sender]; i<deposits.length; i++) {
+        for (uint i=nextDepositToPayout[_holder]; i<deposits.length; i++) {
             Deposit storage d = deposits[i];
             if ((d.token == _token)&&(!d.canceled) && (!isDepositSkiped(_holder, i))) {
                 acc +=  d.amount *
