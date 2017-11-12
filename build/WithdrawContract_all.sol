@@ -249,7 +249,7 @@ contract WithdrawContract is Escapable {
     }
 
     Deposit[] public deposits; // Array of deposits to this contract
-    MiniMeToken rewardToken;     // Token that is used for withdraws
+    MiniMeToken public rewardToken;     // Token that is used for withdraws
 
     mapping (address => uint) public nextDepositToPayout; // Tracks Payouts
     mapping (address => mapping(uint => bool)) skipDeposits;
@@ -438,7 +438,7 @@ contract WithdrawContract is Escapable {
     /// @return True if there are payments to be collected
     function canWithdraw(address _holder) public constant returns (bool) {
         if (nextDepositToPayout[_holder] == deposits.length) return false;
-        for (uint i=nextDepositToPayout[msg.sender]; i<deposits.length; i++) {
+        for (uint i=nextDepositToPayout[_holder]; i<deposits.length; i++) {
             Deposit storage d = deposits[i];
             if ((!d.canceled) && (!isDepositSkiped(_holder, i))) {
                 uint amount =  d.amount *
