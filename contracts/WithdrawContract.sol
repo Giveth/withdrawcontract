@@ -73,10 +73,6 @@ contract WithdrawContract is Escapable {
         rewardToken = _rewardToken;
     }
 
-    /// @dev When ether is sent to this contract `newEtherDeposit()` is called
-    function () payable public {
-        newEtherDeposit(0);
-    }
 /////////
 // Owner Functions
 /////////
